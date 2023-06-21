@@ -238,27 +238,42 @@ if __name__ == '__main__':
     if args.unify:
         y = unique_embeddings(y, trg_inds, args.verbose)
     faiss.normalize_L2(y)
+    assert x.shape[0]> args.neighborhood, f" the size of x is {x.shape[0]} and it is less than the k selected {args.neighborhood} "
+    assert y.shape[0]> args.neighborhood, f" the size of y is {y.shape[0]} and it is less than the k selected {args.neighborhood} "
+
+    # filenames
+    helper = args.output.split(".")
+    common_path = helper[0]+"."+helper[2]+"."+helper[3]
+    x2y_ind_file= common_path +".x2y_ind.npy"
+    x2y_sim_file =common_path +".x2y_sim.npy"
+    y2x_ind_file = common_path +"y2x_ind.npy"
+    y2x_sim_file = common_path +" y2x_sim.npy"
 
     # calculate knn in both directions
     if args.retrieval != 'bwd':
         if args.verbose:
             print(' - perform {:d}-nn source against target'.format(args.neighborhood))
-        if args.code_size:
-            print("we are here")
-            x2y_sim, x2y_ind = knnPQ(x, y, min(y.shape[0], args.neighborhood),args.code_size)
-        else:
-            x2y_sim, x2y_ind = knn(x, y, min(y.shape[0], args.neighborhood), use_gpu)
-        x2y_mean = x2y_sim.mean(axis=1)
+        if not os.path.exists(x2y_ind_file):
+            with open(x2y_ind_file,"xb") as f, open(x2y_sim_file,"xb") as g:
+                if args.code_size:
+                    print("we are here")
+                    x2y_sim, x2y_ind = knnPQ(x, y, min(y.shape[0], args.neighborhood),args.code_size)
+                else:
+                    x2y_sim, x2y_ind = knn(x, y, min(y.shape[0], args.neighborhood), use_gpu)
+                np.save(f, x2y_ind)
+                np.save(g, x2y_sim)
 
     if args.retrieval != 'fwd':
         if args.verbose:
             print(' - perform {:d}-nn target against source'.format(args.neighborhood))
-
-        if args.code_size:
-            y2x_sim, y2x_ind = knnPQ(y, x, min(x.shape[0], args.neighborhood),args.code_size)
-        else:
-            y2x_sim, y2x_ind = knn(y, x, min(x.shape[0], args.neighborhood), use_gpu)
-        y2x_mean = y2x_sim.mean(axis=1)
+        if not os.path.exists(y2x_ind_file):
+            with open(y2x_ind_file,"xb") as f, open(y2x_sim_file,"xb") as g:
+                if args.code_size:
+                    y2x_sim, y2x_ind = knnPQ(y, x, min(x.shape[0], args.neighborhood),args.code_size)
+                else:
+                    y2x_sim, y2x_ind = knn(y, x, min(x.shape[0], args.neighborhood), use_gpu)
+                np.save(f, y2x_ind)
+                np.save(g, y2x_sim)
 
     # margin function
     if args.margin == 'absolute':
@@ -270,10 +285,35 @@ if __name__ == '__main__':
 
     fout = open(args.output, mode='w', encoding=args.encoding, errors='surrogateescape')
 
+    #if args.retrieval != 'bwd':
+    x2y_ind = np.load(x2y_ind_file)
+    x2y_sim = np.load(x2y_sim_file)
+
+    #if args.retrieval != 'fwd':
+    y2x_ind = np.load(y2x_ind_file)
+    y2x_sim = np.load(y2x_sim_file)
+
+    # select subset of relevant neighbours
+    if args.neighborhood < y2x_sim.shape[1]:
+        x2y_ind = x2y_ind[:,:args.neighborhood]
+        x2y_sim = x2y_sim[:,:args.neighborhood]
+        y2x_ind = y2x_ind[:,:args.neighborhood]
+        y2x_sim = y2x_sim[:,:args.neighborhood]
+
+    #denominators
+    x2y_mean = x2y_sim.mean(axis=1)
+    y2x_mean = y2x_sim.mean(axis=1)
+    #######
+    # i) load x2y_ind, x2y_sim and y2x_ind, y2x_sim indices matrices and distances of max k
+    # ii) process them to select the required subset
+    # iii) compute denominators: x2y_mean and y2x_mean based on the subset
+    ### not all files will exist, if bwd, fwd modes
+    ########
     if args.mode == 'search':
         if args.verbose:
             print(' - Searching for closest sentences in target')
             print(' - writing alignments to {:s}'.format(args.output))
+
         scores = score_candidates(x, y, x2y_ind, x2y_mean, y2x_mean, margin, args.verbose)
         best = x2y_ind[np.arange(x.shape[0]), scores.argmax(axis=1)]
 
@@ -292,6 +332,7 @@ if __name__ == '__main__':
     elif args.mode == 'mine':
         if args.verbose:
             print(' - mining for parallel data')
+
         fwd_scores = score_candidates(x, y, x2y_ind, x2y_mean, y2x_mean, margin, args.verbose)
         bwd_scores = score_candidates(y, x, y2x_ind, y2x_mean, x2y_mean, margin, args.verbose)
 
