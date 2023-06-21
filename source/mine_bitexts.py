@@ -107,6 +107,20 @@ def knnGPU(x, y, k, mem=5*1024*1024*1024):
                 ind[i, j] = binds[i-xfrom, aux[i-xfrom, j]]
     return sim, ind
 
+###############################################################################
+#
+# Index PQ
+#
+###############################################################################
+def knnPQ(x,y,k,code_size):
+    dim = x.shape[1]
+    idx = faiss.IndexPQ(dim,code_size,8,faiss.METRIC_L2)
+    print("training")
+    idx.train(y)
+    idx.add(y)
+    sim, ind = idx.search(x, k)
+    return sim, ind
+
 
 ###############################################################################
 #
@@ -195,6 +209,8 @@ if __name__ == '__main__':
         help='Embedding dimensionality')
     parser.add_argument('--fp16', action='store_true',
         help='Load precomputed embeddings in float16 format')
+    parser.add_argument('--code_size', type=int, default=None,
+    help='PQ code size')
     args = parser.parse_args()
 
     print('LASER: tool to search, score or mine bitexts')
@@ -227,13 +243,21 @@ if __name__ == '__main__':
     if args.retrieval != 'bwd':
         if args.verbose:
             print(' - perform {:d}-nn source against target'.format(args.neighborhood))
-        x2y_sim, x2y_ind = knn(x, y, min(y.shape[0], args.neighborhood), use_gpu)
+        if args.code_size:
+            print("we are here")
+            x2y_sim, x2y_ind = knnPQ(x, y, min(y.shape[0], args.neighborhood),args.code_size)
+        else:
+            x2y_sim, x2y_ind = knn(x, y, min(y.shape[0], args.neighborhood), use_gpu)
         x2y_mean = x2y_sim.mean(axis=1)
 
     if args.retrieval != 'fwd':
         if args.verbose:
             print(' - perform {:d}-nn target against source'.format(args.neighborhood))
-        y2x_sim, y2x_ind = knn(y, x, min(x.shape[0], args.neighborhood), use_gpu)
+
+        if args.code_size:
+            y2x_sim, y2x_ind = knnPQ(y, x, min(x.shape[0], args.neighborhood),args.code_size)
+        else:
+            y2x_sim, y2x_ind = knn(y, x, min(x.shape[0], args.neighborhood), use_gpu)
         y2x_mean = y2x_sim.mean(axis=1)
 
     # margin function
@@ -270,6 +294,7 @@ if __name__ == '__main__':
             print(' - mining for parallel data')
         fwd_scores = score_candidates(x, y, x2y_ind, x2y_mean, y2x_mean, margin, args.verbose)
         bwd_scores = score_candidates(y, x, y2x_ind, y2x_mean, x2y_mean, margin, args.verbose)
+
         fwd_best = x2y_ind[np.arange(x.shape[0]), fwd_scores.argmax(axis=1)]
         bwd_best = y2x_ind[np.arange(y.shape[0]), bwd_scores.argmax(axis=1)]
         if args.verbose:
