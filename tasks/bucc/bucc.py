@@ -141,7 +141,7 @@ if args.gold:
     else:
         precision = recall = f1 = 0
 
-    print(' - best threshold={:f}: precision={:.2f}, recall={:.2f}, F1={:.2f}'
+    print(' - best threshold={:f}, precision={:.2f}, recall={:.2f}, F1={:.2f}'
           .format(threshold, 100*precision, 100*recall, 100*f1))
 
 

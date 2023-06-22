@@ -243,11 +243,16 @@ if __name__ == '__main__':
 
     # filenames
     helper = args.output.split(".")
-    common_path = helper[0]+"."+helper[2]+"."+helper[3]
+
+    #create results directory:
+    directory_name = helper[0]+"_sim_and_ind"
+    if not os.path.exists(directory_name):
+        os.makedirs(directory_name)
+    common_path =directory_name+"/"+helper[2]+"."+helper[3]
     x2y_ind_file= common_path +".x2y_ind.npy"
     x2y_sim_file =common_path +".x2y_sim.npy"
     y2x_ind_file = common_path +"y2x_ind.npy"
-    y2x_sim_file = common_path +" y2x_sim.npy"
+    y2x_sim_file = common_path +"y2x_sim.npy"
 
     # calculate knn in both directions
     if args.retrieval != 'bwd':
@@ -256,7 +261,7 @@ if __name__ == '__main__':
         if not os.path.exists(x2y_ind_file):
             with open(x2y_ind_file,"xb") as f, open(x2y_sim_file,"xb") as g:
                 if args.code_size:
-                    print("we are here")
+                    print("product quantised knn - building:")
                     x2y_sim, x2y_ind = knnPQ(x, y, min(y.shape[0], args.neighborhood),args.code_size)
                 else:
                     x2y_sim, x2y_ind = knn(x, y, min(y.shape[0], args.neighborhood), use_gpu)
@@ -295,6 +300,7 @@ if __name__ == '__main__':
 
     # select subset of relevant neighbours
     if args.neighborhood < y2x_sim.shape[1]:
+        print(f"loading bigger file and adjusting size to {args.neighborhood}:")
         x2y_ind = x2y_ind[:,:args.neighborhood]
         x2y_sim = x2y_sim[:,:args.neighborhood]
         y2x_ind = y2x_ind[:,:args.neighborhood]
@@ -303,12 +309,7 @@ if __name__ == '__main__':
     #denominators
     x2y_mean = x2y_sim.mean(axis=1)
     y2x_mean = y2x_sim.mean(axis=1)
-    #######
-    # i) load x2y_ind, x2y_sim and y2x_ind, y2x_sim indices matrices and distances of max k
-    # ii) process them to select the required subset
-    # iii) compute denominators: x2y_mean and y2x_mean based on the subset
-    ### not all files will exist, if bwd, fwd modes
-    ########
+
     if args.mode == 'search':
         if args.verbose:
             print(' - Searching for closest sentences in target')
