@@ -11,10 +11,10 @@
 #SBATCH --partition=learnlab
 
 export LASER="${HOME}/LASER"
-CODE_SIZE=256
-K=200
+CODE_SIZE=64
+K=2
 TARGET_LNG="en"
-SRC_LNG="fr"
+SRC_LNG="de"
 OUTPUT
 srun python3 source/mine_bitexts.py /private/home/marialomeli/LASER/tasks/bucc/embed/bucc2018.${SRC_LNG}-${TARGET_LNG}.train.txt.${SRC_LNG} \
  /private/home/marialomeli/LASER/tasks/bucc/embed/bucc2018.${SRC_LNG}-${TARGET_LNG}.train.txt.${TARGET_LNG} \
