@@ -8,11 +8,11 @@
 #SBATCH --output=/checkpoint/marialomeli/jobs/%A
 #SBATCH --signal=USR1@140
 #SBATCH --open-mode=append
-#SBATCH --partition=devlab
+#SBATCH --partition=learnlab
 
 export LASER="${HOME}/LASER"
-CODE_SIZE=64
-K=120
+CODE_SIZE=256
+K=200
 TARGET_LNG="en"
 SRC_LNG="fr"
 OUTPUT

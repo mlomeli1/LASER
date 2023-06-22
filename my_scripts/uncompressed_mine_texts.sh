@@ -11,9 +11,9 @@
 #SBATCH --partition=devlab
 
 export LASER="${HOME}/LASER"
-K=120
+K=200
 TARGET_LNG="en"
-SRC_LNG="de"
+SRC_LNG="ru"
 
 srun python3 source/mine_bitexts.py /private/home/marialomeli/LASER/tasks/bucc/embed/bucc2018.${SRC_LNG}-${TARGET_LNG}.train.txt.${SRC_LNG} \
  /private/home/marialomeli/LASER/tasks/bucc/embed/bucc2018.${SRC_LNG}-${TARGET_LNG}.train.txt.${TARGET_LNG} \
