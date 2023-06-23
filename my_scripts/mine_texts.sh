@@ -20,4 +20,4 @@ srun python3 source/mine_bitexts.py /private/home/marialomeli/LASER/tasks/bucc/e
  /private/home/marialomeli/LASER/tasks/bucc/embed/bucc2018.${SRC_LNG}-${TARGET_LNG}.train.txt.${TARGET_LNG} \
 --src-lang de --trg-lang en --src-embeddings  /private/home/marialomeli/LASER/tasks/bucc/embed/sonar_embeds/encf.bucc2018.${SRC_LNG}-${TARGET_LNG}.train.${SRC_LNG} \
 --trg-embeddings /private/home/marialomeli/LASER/tasks/bucc/embed/sonar_embeds/encf.bucc2018.${SRC_LNG}-${TARGET_LNG}.train.${TARGET_LNG} --mode mine --retrieval max \
---margin ratio -k ${K} --code_size ${CODE_SIZE} --output /private/home/marialomeli/LASER/tasks/bucc/embed/sonar${CODE_SIZE}.k${K}.bucc2018.${SRC_LNG}-${TARGET_LNG}.train.candidates.tsv --verbose --fp16 --unify 
+--margin ratio -k ${K} --code_size ${CODE_SIZE} --output /private/home/marialomeli/LASER/tasks/bucc/embed --verbose --fp16 --unify

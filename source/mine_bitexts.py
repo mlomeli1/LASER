@@ -176,7 +176,7 @@ if __name__ == '__main__':
     parser.add_argument('--trg-lang', required=True,
         help='Target language id')
     parser.add_argument('--output', required=True,
-        help='Output file')
+        help='Output directory')
     parser.add_argument('--threshold', type=float, default=0,
         help='Threshold on extracted bitexts')
 
@@ -242,17 +242,22 @@ if __name__ == '__main__':
     assert y.shape[0]> args.neighborhood, f" the size of y is {y.shape[0]} and it is less than the k selected {args.neighborhood} "
 
     # filenames
-    helper = args.output.split(".")
+    output_prefix = f"sonar.margin_{args.margin}.retrieval_{args.retrieval}.bucc2018.{args.src_lang}-{args.trg_lang}"
+    if args.code_size:
+        output_prefix += f".PQ{args.code_size}."
+    output_filename = args.output + "/" + output_prefix + f".train.k{args.neighborhood}.candidates.tsv"
 
     #create results directory:
-    directory_name = helper[0]+"_sim_and_ind"
+    directory_name = args.output + "/sim_and_ind"
     if not os.path.exists(directory_name):
         os.makedirs(directory_name)
-    common_path =directory_name+"/"+helper[2]+"."+helper[3]
+    common_path = directory_name + "/" +f"{args.src_lang}-{args.trg_lang}"
+    if args.code_size:
+        common_path+= f".PQ{args.code_size}"
     x2y_ind_file= common_path +".x2y_ind.npy"
     x2y_sim_file =common_path +".x2y_sim.npy"
-    y2x_ind_file = common_path +"y2x_ind.npy"
-    y2x_sim_file = common_path +"y2x_sim.npy"
+    y2x_ind_file = common_path +".y2x_ind.npy"
+    y2x_sim_file = common_path +".y2x_sim.npy"
 
     # calculate knn in both directions
     if args.retrieval != 'bwd':
@@ -288,7 +293,7 @@ if __name__ == '__main__':
     else:  # args.margin == 'ratio':
         margin = lambda a, b: a / b
 
-    fout = open(args.output, mode='w', encoding=args.encoding, errors='surrogateescape')
+    fout = open(output_filename, mode='w', encoding=args.encoding, errors='surrogateescape')
 
     #if args.retrieval != 'bwd':
     x2y_ind = np.load(x2y_ind_file)
@@ -313,7 +318,7 @@ if __name__ == '__main__':
     if args.mode == 'search':
         if args.verbose:
             print(' - Searching for closest sentences in target')
-            print(' - writing alignments to {:s}'.format(args.output))
+            print(' - writing alignments to {:s}'.format(output_filename))
 
         scores = score_candidates(x, y, x2y_ind, x2y_mean, y2x_mean, margin, args.verbose)
         best = x2y_ind[np.arange(x.shape[0]), scores.argmax(axis=1)]
@@ -340,7 +345,7 @@ if __name__ == '__main__':
         fwd_best = x2y_ind[np.arange(x.shape[0]), fwd_scores.argmax(axis=1)]
         bwd_best = y2x_ind[np.arange(y.shape[0]), bwd_scores.argmax(axis=1)]
         if args.verbose:
-            print(' - writing alignments to {:s}'.format(args.output))
+            print(' - writing alignments to {:s}'.format(output_filename))
             if args.threshold > 0:
                 print(' - with threshold of {:f}'.format(args.threshold))
         if args.retrieval == 'fwd':
