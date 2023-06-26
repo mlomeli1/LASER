@@ -244,7 +244,7 @@ if __name__ == '__main__':
     # filenames
     output_prefix = f"sonar.margin_{args.margin}.retrieval_{args.retrieval}.bucc2018.{args.src_lang}-{args.trg_lang}"
     if args.code_size:
-        output_prefix += f".PQ{args.code_size}."
+        output_prefix += f".PQ{args.code_size}"
     output_filename = args.output + "/" + output_prefix + f".train.k{args.neighborhood}.candidates.tsv"
 
     #create results directory:
@@ -261,26 +261,29 @@ if __name__ == '__main__':
 
     # calculate knn in both directions
     if args.retrieval != 'bwd':
-        if args.verbose:
-            print(' - perform {:d}-nn source against target'.format(args.neighborhood))
         if not os.path.exists(x2y_ind_file):
+            if args.verbose:
+                print(' - perform {:d}-nn source against target'.format(args.neighborhood))
             with open(x2y_ind_file,"xb") as f, open(x2y_sim_file,"xb") as g:
                 if args.code_size:
                     print("product quantised knn - building:")
                     x2y_sim, x2y_ind = knnPQ(x, y, min(y.shape[0], args.neighborhood),args.code_size)
                 else:
+                    print("knn - building:")
                     x2y_sim, x2y_ind = knn(x, y, min(y.shape[0], args.neighborhood), use_gpu)
                 np.save(f, x2y_ind)
                 np.save(g, x2y_sim)
 
     if args.retrieval != 'fwd':
-        if args.verbose:
-            print(' - perform {:d}-nn target against source'.format(args.neighborhood))
         if not os.path.exists(y2x_ind_file):
+            if args.verbose:
+                print(' - perform {:d}-nn target against source'.format(args.neighborhood))
             with open(y2x_ind_file,"xb") as f, open(y2x_sim_file,"xb") as g:
                 if args.code_size:
+                    print("product quantised knn - building:")
                     y2x_sim, y2x_ind = knnPQ(y, x, min(x.shape[0], args.neighborhood),args.code_size)
                 else:
+                    print("knn - building:")
                     y2x_sim, y2x_ind = knn(y, x, min(x.shape[0], args.neighborhood), use_gpu)
                 np.save(f, y2x_ind)
                 np.save(g, y2x_sim)

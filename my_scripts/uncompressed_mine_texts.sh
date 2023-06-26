@@ -11,12 +11,12 @@
 #SBATCH --partition=devlab
 
 export LASER="${HOME}/LASER"
-K=200
+K=4
 TARGET_LNG="en"
-SRC_LNG="ru"
+SRC_LNG="de"
 
 srun python3 source/mine_bitexts.py /private/home/marialomeli/LASER/tasks/bucc/embed/bucc2018.${SRC_LNG}-${TARGET_LNG}.train.txt.${SRC_LNG} \
  /private/home/marialomeli/LASER/tasks/bucc/embed/bucc2018.${SRC_LNG}-${TARGET_LNG}.train.txt.${TARGET_LNG} \
---src-lang de --trg-lang en --src-embeddings  /private/home/marialomeli/LASER/tasks/bucc/embed/sonar_embeds/encf.bucc2018.${SRC_LNG}-${TARGET_LNG}.train.${SRC_LNG} \
+--src-lang ${SRC_LNG} --trg-lang ${TARGET_LNG} --src-embeddings  /private/home/marialomeli/LASER/tasks/bucc/embed/sonar_embeds/encf.bucc2018.${SRC_LNG}-${TARGET_LNG}.train.${SRC_LNG} \
 --trg-embeddings /private/home/marialomeli/LASER/tasks/bucc/embed/sonar_embeds/encf.bucc2018.${SRC_LNG}-${TARGET_LNG}.train.${TARGET_LNG} --mode mine --retrieval max \
---margin ratio -k ${K} --output /private/home/marialomeli/LASER/tasks/bucc/embed/sonar.k${K}.bucc2018.${SRC_LNG}-${TARGET_LNG}.train.candidates.tsv --verbose --fp16 --unify  --gpu
+--margin ratio -k ${K} --output /private/home/marialomeli/LASER/tasks/bucc/embed --verbose --fp16 --unify  --gpu

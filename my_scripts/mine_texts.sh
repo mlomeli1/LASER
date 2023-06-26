@@ -8,16 +8,17 @@
 #SBATCH --output=/checkpoint/marialomeli/jobs/%A
 #SBATCH --signal=USR1@140
 #SBATCH --open-mode=append
-#SBATCH --partition=learnlab
+#SBATCH --partition=devlab
 
 export LASER="${HOME}/LASER"
-CODE_SIZE=64
-K=2
+CODE_SIZE=128
+K=200
 TARGET_LNG="en"
-SRC_LNG="de"
-OUTPUT
+SRC_LNG="ru"
+
 srun python3 source/mine_bitexts.py /private/home/marialomeli/LASER/tasks/bucc/embed/bucc2018.${SRC_LNG}-${TARGET_LNG}.train.txt.${SRC_LNG} \
  /private/home/marialomeli/LASER/tasks/bucc/embed/bucc2018.${SRC_LNG}-${TARGET_LNG}.train.txt.${TARGET_LNG} \
---src-lang de --trg-lang en --src-embeddings  /private/home/marialomeli/LASER/tasks/bucc/embed/sonar_embeds/encf.bucc2018.${SRC_LNG}-${TARGET_LNG}.train.${SRC_LNG} \
+--src-lang ${SRC_LNG} --trg-lang ${TARGET_LNG} --src-embeddings  /private/home/marialomeli/LASER/tasks/bucc/embed/sonar_embeds/encf.bucc2018.${SRC_LNG}-${TARGET_LNG}.train.${SRC_LNG} \
 --trg-embeddings /private/home/marialomeli/LASER/tasks/bucc/embed/sonar_embeds/encf.bucc2018.${SRC_LNG}-${TARGET_LNG}.train.${TARGET_LNG} --mode mine --retrieval max \
 --margin ratio -k ${K} --code_size ${CODE_SIZE} --output /private/home/marialomeli/LASER/tasks/bucc/embed --verbose --fp16 --unify
+
