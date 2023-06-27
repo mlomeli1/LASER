@@ -36,9 +36,13 @@ def BuccOptimize(candidate2score, gold):
             precision = ncorrect / nextract
             recall = ncorrect / ngold
             f1 = 2 * precision * recall / (precision + recall)
+
             if f1 > best_f1:
                 best_f1 = f1
-                threshold = (items[i][1] + items[i + 1][1]) / 2
+                if  i<len(items)-1:
+                    threshold = (items[i][1] + items[i + 1][1]) / 2
+                else:
+                    threshold = items[i][1]
     return threshold
 
 
