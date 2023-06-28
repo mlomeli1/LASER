@@ -114,8 +114,8 @@ def knnGPU(x, y, k, mem=5*1024*1024*1024):
 ###############################################################################
 def knnPQ(x,y,k,code_size):
     dim = x.shape[1]
-    #idx = faiss.IndexPQ(dim,code_size,8,faiss.METRIC_L2)
-    idx = faiss.IndexScalarQuantizer(dim,faiss.ScalarQuantizer.QT_8bit,faiss.METRIC_L2)
+    idx = faiss.IndexPQ(dim,code_size,8,faiss.METRIC_INNER_PRODUCT)
+    #idx = faiss.IndexScalarQuantizer(dim,faiss.ScalarQuantizer.QT_8bit,faiss.METRIC_INNER_PRODUCT)
     print("training")
     idx.train(y)
     idx.add(y)
@@ -245,8 +245,8 @@ if __name__ == '__main__':
     # filenames
     output_prefix = f"sonar.margin_{args.margin}.retrieval_{args.retrieval}.bucc2018.{args.src_lang}-{args.trg_lang}"
     if args.code_size:
-        output_prefix += f".SQ{args.code_size}"
-        #output_prefix += f".PQ{args.code_size}"
+        #output_prefix += f".SQ{args.code_size}"
+        output_prefix += f".PQ{args.code_size}"
     output_filename = args.output + "/" + output_prefix + f".train.k{args.neighborhood}.candidates.tsv"
 
     #create results directory:
@@ -255,8 +255,8 @@ if __name__ == '__main__':
         os.makedirs(directory_name)
     common_path = directory_name + "/" +f"{args.src_lang}-{args.trg_lang}"
     if args.code_size:
-        #common_path+= f".PQ{args.code_size}"
-        common_path+= f".SQ{args.code_size}"
+        common_path+= f".PQ{args.code_size}"
+        #common_path+= f".SQ{args.code_size}"
     x2y_ind_file= common_path +".x2y_ind.npy"
     x2y_sim_file =common_path +".x2y_sim.npy"
     y2x_ind_file = common_path +".y2x_ind.npy"
