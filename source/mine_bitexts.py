@@ -298,7 +298,7 @@ if __name__ == '__main__':
         margin = lambda a, b: a - b
     else:  # args.margin == 'ratio':
         margin = lambda a, b: a / b
-
+    assert not os.path.exists(output_filename), f"the candidates file {output_filename} exists, no need to re-run."
     fout = open(output_filename, mode='w', encoding=args.encoding, errors='surrogateescape')
 
     #if args.retrieval != 'bwd':
