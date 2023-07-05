@@ -144,20 +144,19 @@ def knnCPU(x, y, k):
 #
 ###############################################################################
 
-def score(x,y,distance, fwd_mean, bwd_mean, margin):
-    #x.dot(y)
-    return margin(distance, (fwd_mean + bwd_mean) / 2) #they are not using the approximate distance for the numerator!!!
+def score(distance, fwd_mean, bwd_mean, margin):
+    return margin(distance, (fwd_mean + bwd_mean) / 2)
 
 
-def score_candidates(x,y,candidate_distances, candidate_inds, fwd_mean, bwd_mean, margin, verbose=False):
+def score_candidates(candidate_distances, candidate_inds, fwd_mean, bwd_mean, margin, verbose=False):
     if verbose:
         print(' - scoring {:d} candidates'.format(x.shape[0]))
-        assert candidate_distances.shape[0]==candidate_inds.shape[0] and candidate_distances.shape[1]==candidate_inds.shape[1],"check"
+        assert candidate_distances.shape[0]==candidate_inds.shape[0] and candidate_distances.shape[1]==candidate_inds.shape[1]
     scores = np.zeros(candidate_inds.shape)
     for i in range(scores.shape[0]):
         for j in range(scores.shape[1]):
             k = candidate_inds[i, j]
-            scores[i, j] =  score(x[i], y[k],candidate_distances[i,j], fwd_mean[i], bwd_mean[k], margin)
+            scores[i, j] =  score(candidate_distances[i,j], fwd_mean[i], bwd_mean[k], margin)
     return scores
 
 
@@ -331,7 +330,7 @@ if __name__ == '__main__':
             print(' - Searching for closest sentences in target')
             print(' - writing alignments to {:s}'.format(output_filename))
 
-        scores = score_candidates(x,y,x2y_sim, x2y_ind, x2y_mean, y2x_mean, margin, args.verbose)
+        scores = score_candidates(x2y_sim, x2y_ind, x2y_mean, y2x_mean, margin, args.verbose)
         best = x2y_ind[np.arange(x.shape[0]), scores.argmax(axis=1)]
 
         nbex = x.shape[0]
@@ -343,16 +342,15 @@ if __name__ == '__main__':
 
     elif args.mode == 'score':
         for i, j in zip(src_inds, trg_inds):
-            #s = score(x[i], y[j], x2y_mean[i], y2x_mean[j], margin)
-            s = score(x[i], y[j],x2y_sim[i,j], x2y_mean[i], y2x_mean[j], margin)
+            s = score(x2y_sim[i,j], x2y_mean[i], y2x_mean[j], margin)
             print(s, src_sents[i], trg_sents[j], sep='\t', file=fout)
 
     elif args.mode == 'mine':
         if args.verbose:
             print(' - mining for parallel data')
 
-        fwd_scores = score_candidates(x,y, x2y_sim, x2y_ind, x2y_mean, y2x_mean, margin, args.verbose)
-        bwd_scores = score_candidates(y,x, y2x_sim, y2x_ind, y2x_mean, x2y_mean, margin, args.verbose)
+        fwd_scores = score_candidates(x2y_sim, x2y_ind, x2y_mean, y2x_mean, margin, args.verbose)
+        bwd_scores = score_candidates(y2x_sim, y2x_ind, y2x_mean, x2y_mean, margin, args.verbose)
 
         fwd_best = x2y_ind[np.arange(x.shape[0]), fwd_scores.argmax(axis=1)]
         bwd_best = y2x_ind[np.arange(y.shape[0]), bwd_scores.argmax(axis=1)]
