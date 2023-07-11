@@ -214,6 +214,8 @@ if __name__ == '__main__':
         help='Load precomputed embeddings in float16 format')
     parser.add_argument('--code_size', type=int, default=None,
     help='PQ code size')
+    parser.add_argument('--filter_repeats',action='store_true', default=False,
+    help='filter repeats')
     args = parser.parse_args()
 
     print('LASER: tool to search, score or mine bitexts')
@@ -250,7 +252,9 @@ if __name__ == '__main__':
         #output_prefix += f".SQ{args.code_size}"
         output_prefix += f".PQ{args.code_size}"
     output_filename = args.output + "/" + output_prefix + f".train.k{args.neighborhood}.candidates.tsv"
-
+    if args.filter_repeats:
+         output_filename +=".n_repeats"
+    print("Filter repeats",args.filter_repeats)
     #create results directory:
     directory_name = args.output + "/sim_and_ind"
     if not os.path.exists(directory_name):
@@ -302,7 +306,7 @@ if __name__ == '__main__':
         margin = lambda a, b: a - b
     else:  # args.margin == 'ratio':
         margin = lambda a, b: a / b
-    assert not os.path.exists(output_filename), f"the candidates file {output_filename} exists, no need to re-run."
+    #assert not os.path.exists(output_filename), f"the candidates file {output_filename} exists, no need to re-run."
     fout = open(output_filename, mode='w', encoding=args.encoding, errors='surrogateescape')
 
     #if args.retrieval != 'bwd':
@@ -373,11 +377,18 @@ if __name__ == '__main__':
                                 np.concatenate((fwd_best, np.arange(y.shape[0])))), axis=1)
             scores = np.concatenate((fwd_scores.max(axis=1), bwd_scores.max(axis=1)))
             seen_src, seen_trg = set(), set()
+
             for i in np.argsort(-scores):
                 src_ind, trg_ind = indices[i]
-                if not src_ind in seen_src and not trg_ind in seen_trg:
-                    seen_src.add(src_ind)
-                    seen_trg.add(trg_ind)
+                if args.filter_repeats:
+                    if not src_ind in seen_src and not trg_ind in seen_trg:
+                        seen_src.add(src_ind)
+                        seen_trg.add(trg_ind)
+
+                        if scores[i] > args.threshold:
+                            print(scores[i], src_sents[src_ind], trg_sents[trg_ind], sep='\t', file=fout)
+                else:
+                    #not removing duplicates
                     if scores[i] > args.threshold:
                         print(scores[i], src_sents[src_ind], trg_sents[trg_ind], sep='\t', file=fout)
 

@@ -15,7 +15,8 @@
 # Python tools for BUCC bitext mining
 
 import argparse
-
+import os
+import numpy as np
 ###############################################################################
 #
 # Find te optimal threshold given gold alignments
@@ -24,17 +25,31 @@ import argparse
 
 def BuccOptimize(candidate2score, gold):
     items = sorted(candidate2score.items(), key=lambda x: -x[1])
+    print("length of items:",len(items))
     ngold = len(gold)
     nextract = ncorrect = 0
     threshold = 0
     best_f1 = 0
+    precisions=[]
+    recalls=[]
     for i in range(len(items)):
         nextract += 1
         if '\t'.join(items[i][0]) in gold:
             ncorrect += 1
-        if ncorrect > 0:
-            precision = ncorrect / nextract
-            recall = ncorrect / ngold
+
+        #print("ncorrect,nextract",ncorrect,nextract)
+
+        precision = ncorrect / nextract
+        #if len(precisions)>0 and precision>precisions[-1]:
+        #    import pdb
+        #    pdb.set_trace()
+        precisions.append(precision)
+        recall = ncorrect / ngold
+        if  len(recalls)>0 and recall<recalls[-1]:
+            import pdb
+            pdb.set_trace()
+        recalls.append(recall)
+        if precision + recall>0:
             f1 = 2 * precision * recall / (precision + recall)
 
             if f1 > best_f1:
@@ -43,7 +58,25 @@ def BuccOptimize(candidate2score, gold):
                     threshold = (items[i][1] + items[i + 1][1]) / 2
                 else:
                     threshold = items[i][1]
-    return threshold
+    return threshold,precisions,recalls
+###############################################################################
+#
+# Filter candidates for a given threshold
+#
+###############################################################################
+
+def BuccExtract(cand2score, th, fname):
+    if fname:
+        of = open(fname, 'w', encoding=args.encoding)
+    bitexts = []
+    for (src, trg), score in cand2score.items():
+        if score >= th:
+            bitexts.append(src + '\t' + trg)
+            if fname:
+                of.write(src + '\t' + trg + '\n')
+    if fname:
+        of.close()
+    return bitexts
 
 
 ###############################################################################
@@ -101,7 +134,25 @@ for lang, sent2id in (args.src_lang, src_sent2id), (args.trg_lang, trg_sent2id):
 if args.verbose:
     print(' - reading candidates {}'.format(args.candidates))
 candidate2score = {}
-# id2txt = {}
+id2txt = {}
+
+#create results directory:
+helper = args.candidates.split("sonar")
+other_settings = helper[1].split(".")
+directory_name = helper[0] + f"PR"
+
+if not os.path.exists(directory_name):
+    os.makedirs(directory_name)
+precisions_file = directory_name+ f"/sonar.{other_settings[1]}.{other_settings[2]}.{other_settings[3]}.{other_settings[4]}.{other_settings[5]}.{other_settings[6]}.{other_settings[7]}.precisions"
+recalls_file = directory_name+ f"/sonar.{other_settings[1]}.{other_settings[2]}.{other_settings[3]}.{other_settings[4]}.{other_settings[5]}.{other_settings[6]}.{other_settings[7]}.recalls"
+if "n_repeats" in other_settings:
+    precisions_file +=".no_repeats"
+    recalls_file +=".no_repeats"
+print("precisions will be saved in file:",precisions_file)
+print("recalls will be saved in file:",recalls_file)
+
+
+
 with open(args.candidates, encoding=args.encoding, errors='surrogateescape') as f:
     for line in f:
         score, src, trg = line.split('\t')
@@ -113,20 +164,7 @@ with open(args.candidates, encoding=args.encoding, errors='surrogateescape') as 
             trg_id = trg_sent2id[trg]
             score = max(score, candidate2score.get((src_id, trg_id), score))
             candidate2score[(src_id, trg_id)] = score
-            # id2txt[src_id + '\t' + trg_id] = src + '\t' + trg
-
-def BuccExtract(cand2score, th, fname):
-    if fname:
-        of = open(fname, 'w', encoding=args.encoding)
-    bitexts = []
-    for (src, trg), score in cand2score.items():
-        if score >= th:
-            bitexts.append(src + '\t' + trg)
-            if fname:
-                of.write(src + '\t' + trg + '\n')
-    if fname:
-        of.close()
-    return bitexts
+            id2txt[src_id + '\t' + trg_id] = src + '\t' + trg
 
 if args.gold:
     if args.verbose:
@@ -134,7 +172,12 @@ if args.gold:
         if args.output:
             print(' - extracted bitext are written into {:s}'.format(args.output))
     gold = {line.strip() for line in open(args.gold)}
-    threshold = BuccOptimize(candidate2score, gold)
+    with open(precisions_file,"xb") as f, open(recalls_file,"xb") as g:
+        print("len of candidates:",len(candidate2score))
+        threshold,pr,r = BuccOptimize(candidate2score, gold)
+        np.save(f, pr)
+        np.save(g, r)
+
 
     bitexts = BuccExtract(candidate2score, threshold, args.output)
     ncorrect = len(gold.intersection(bitexts))
