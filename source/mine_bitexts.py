@@ -144,11 +144,14 @@ def knnCPU(x, y, k):
 #
 ###############################################################################
 
-def score(distance, fwd_mean, bwd_mean, margin):
+def score(distance, fwd_mean, bwd_mean, margin,max_denominator=False):
+
+    if max_denominator:
+        return margin(distance, max(fwd_mean, bwd_mean))
     return margin(distance, (fwd_mean + bwd_mean) / 2)
 
 
-def score_candidates(candidate_distances, candidate_inds, fwd_mean, bwd_mean, margin, verbose=False):
+def score_candidates(candidate_distances, candidate_inds, fwd_mean, bwd_mean, margin, verbose=False,max_denominator=False):
     if verbose:
         print(' - scoring {:d} candidates'.format(x.shape[0]))
         assert candidate_distances.shape[0]==candidate_inds.shape[0] and candidate_distances.shape[1]==candidate_inds.shape[1]
@@ -156,7 +159,7 @@ def score_candidates(candidate_distances, candidate_inds, fwd_mean, bwd_mean, ma
     for i in range(scores.shape[0]):
         for j in range(scores.shape[1]):
             k = candidate_inds[i, j]
-            scores[i, j] =  score(candidate_distances[i,j], fwd_mean[i], bwd_mean[k], margin)
+            scores[i, j] =  score(candidate_distances[i,j], fwd_mean[i], bwd_mean[k], margin,max_denominator)
     return scores
 
 
@@ -216,6 +219,8 @@ if __name__ == '__main__':
     help='PQ code size')
     parser.add_argument('--filter_repeats',action='store_true', default=False,
     help='filter repeats')
+    parser.add_argument('--max_denominator',action='store_true', default=False,
+    help='Select the maximum of the backward and forward averages rather than the average')
     args = parser.parse_args()
 
     print('LASER: tool to search, score or mine bitexts')
@@ -254,7 +259,10 @@ if __name__ == '__main__':
     output_filename = args.output + "/" + output_prefix + f".train.k{args.neighborhood}.candidates.tsv"
     if args.filter_repeats:
          output_filename +=".n_repeats"
+    if args.max_denominator:
+          output_filename +=".max_denominator"
     print("Filter repeats",args.filter_repeats)
+    print("Take maximum of averages in denominator",args.max_denominator)
     #create results directory:
     directory_name = args.output + "/sim_and_ind"
     if not os.path.exists(directory_name):
@@ -306,7 +314,7 @@ if __name__ == '__main__':
         margin = lambda a, b: a - b
     else:  # args.margin == 'ratio':
         margin = lambda a, b: a / b
-    #assert not os.path.exists(output_filename), f"the candidates file {output_filename} exists, no need to re-run."
+    assert not os.path.exists(output_filename), f"the candidates file {output_filename} exists, no need to re-run."
     fout = open(output_filename, mode='w', encoding=args.encoding, errors='surrogateescape')
 
     #if args.retrieval != 'bwd':
@@ -334,7 +342,7 @@ if __name__ == '__main__':
             print(' - Searching for closest sentences in target')
             print(' - writing alignments to {:s}'.format(output_filename))
 
-        scores = score_candidates(x2y_sim, x2y_ind, x2y_mean, y2x_mean, margin, args.verbose)
+        scores = score_candidates(x2y_sim, x2y_ind, x2y_mean, y2x_mean, margin, args.verbose,args.max_denominator)
         best = x2y_ind[np.arange(x.shape[0]), scores.argmax(axis=1)]
 
         nbex = x.shape[0]
@@ -346,15 +354,15 @@ if __name__ == '__main__':
 
     elif args.mode == 'score':
         for i, j in zip(src_inds, trg_inds):
-            s = score(x2y_sim[i,j], x2y_mean[i], y2x_mean[j], margin)
+            s = score(x2y_sim[i,j], x2y_mean[i], y2x_mean[j], margin,args.max_denominator)
             print(s, src_sents[i], trg_sents[j], sep='\t', file=fout)
 
     elif args.mode == 'mine':
         if args.verbose:
             print(' - mining for parallel data')
 
-        fwd_scores = score_candidates(x2y_sim, x2y_ind, x2y_mean, y2x_mean, margin, args.verbose)
-        bwd_scores = score_candidates(y2x_sim, y2x_ind, y2x_mean, x2y_mean, margin, args.verbose)
+        fwd_scores = score_candidates(x2y_sim, x2y_ind, x2y_mean, y2x_mean, margin, args.verbose,args.max_denominator)
+        bwd_scores = score_candidates(y2x_sim, y2x_ind, y2x_mean, x2y_mean, margin, args.verbose,args.max_denominator)
 
         fwd_best = x2y_ind[np.arange(x.shape[0]), fwd_scores.argmax(axis=1)]
         bwd_best = y2x_ind[np.arange(y.shape[0]), bwd_scores.argmax(axis=1)]

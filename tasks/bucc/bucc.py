@@ -37,12 +37,7 @@ def BuccOptimize(candidate2score, gold):
         if '\t'.join(items[i][0]) in gold:
             ncorrect += 1
 
-        #print("ncorrect,nextract",ncorrect,nextract)
-
         precision = ncorrect / nextract
-        #if len(precisions)>0 and precision>precisions[-1]:
-        #    import pdb
-        #    pdb.set_trace()
         precisions.append(precision)
         recall = ncorrect / ngold
         if  len(recalls)>0 and recall<recalls[-1]:
@@ -140,7 +135,6 @@ id2txt = {}
 helper = args.candidates.split("sonar")
 other_settings = helper[1].split(".")
 directory_name = helper[0] + f"PR"
-
 if not os.path.exists(directory_name):
     os.makedirs(directory_name)
 precisions_file = directory_name+ f"/sonar.{other_settings[1]}.{other_settings[2]}.{other_settings[3]}.{other_settings[4]}.{other_settings[5]}.{other_settings[6]}.{other_settings[7]}.precisions"
@@ -148,6 +142,10 @@ recalls_file = directory_name+ f"/sonar.{other_settings[1]}.{other_settings[2]}.
 if "n_repeats" in other_settings:
     precisions_file +=".no_repeats"
     recalls_file +=".no_repeats"
+if "max_denominator" in other_settings:
+    precisions_file +=".max_denominator"
+    recalls_file +=".max_denominator"
+
 print("precisions will be saved in file:",precisions_file)
 print("recalls will be saved in file:",recalls_file)
 
