@@ -137,7 +137,19 @@ def knnCPU(x, y, k):
     sim, ind = idx.search(x, k)
     return sim, ind
 
+###############################################################################
+#
+# Dedup
+#
+###############################################################################
 
+def dedupe(x):
+    dim = x.shape[1]
+    deduper = faiss.index_factory(dim, 'OPQ32,PQ32')
+    deduper.train(x)
+    codes = deduper.sa_encode(x)
+    _, idxs, _, _ = np.unique(codes, axis=0, return_index=True, return_inverse=True, return_counts=True)
+    return idxs
 ###############################################################################
 #
 # Scoring
@@ -234,6 +246,7 @@ if __name__ == '__main__':
     trg_inds, trg_sents = TextLoadUnify(args.trg, args)
 
     def unique_embeddings(emb, ind, verbose=False):
+
         aux = {j: i for i, j in enumerate(ind)}
         if verbose:
             print(' - unify embeddings: {:d} -> {:d}'.format(len(emb), len(aux)))
@@ -241,10 +254,12 @@ if __name__ == '__main__':
 
     # load the embeddings and store as np.float32 (required for FAISS)
     x = EmbedLoad(args.src_embeddings, args.dim, verbose=args.verbose, fp16=args.fp16).astype(np.float32)
+    #x_idxs = dedupe(x)
     if args.unify:
         x = unique_embeddings(x, src_inds, args.verbose)
     faiss.normalize_L2(x)
     y = EmbedLoad(args.trg_embeddings, args.dim, verbose=args.verbose, fp16=args.fp16).astype(np.float32)
+    #y_idxs = dedupe(y)
     if args.unify:
         y = unique_embeddings(y, trg_inds, args.verbose)
     faiss.normalize_L2(y)

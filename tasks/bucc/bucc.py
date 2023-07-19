@@ -139,16 +139,21 @@ if not os.path.exists(directory_name):
     os.makedirs(directory_name)
 precisions_file = directory_name+ f"/sonar.{other_settings[1]}.{other_settings[2]}.{other_settings[3]}.{other_settings[4]}.{other_settings[5]}.{other_settings[6]}.{other_settings[7]}.precisions"
 recalls_file = directory_name+ f"/sonar.{other_settings[1]}.{other_settings[2]}.{other_settings[3]}.{other_settings[4]}.{other_settings[5]}.{other_settings[6]}.{other_settings[7]}.recalls"
+thresholds_file = directory_name+ f"/sonar.{other_settings[1]}.{other_settings[2]}.{other_settings[3]}.{other_settings[4]}.{other_settings[5]}.{other_settings[6]}.{other_settings[7]}.thresholds"
+
 if "n_repeats" in other_settings:
     precisions_file +=".no_repeats"
     recalls_file +=".no_repeats"
+    thresholds_file +=".no_repeats"
+
 if "max_denominator" in other_settings:
     precisions_file +=".max_denominator"
     recalls_file +=".max_denominator"
+    thresholds_file+=".max_denominator"
 
 print("precisions will be saved in file:",precisions_file)
 print("recalls will be saved in file:",recalls_file)
-
+print("thresholds will be saved in file:",thresholds_file)
 
 
 with open(args.candidates, encoding=args.encoding, errors='surrogateescape') as f:
