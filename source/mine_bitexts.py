@@ -70,8 +70,8 @@ def TextLoadUnify(fname, args):
 #
 ###############################################################################
 
-def knn(x, y, k, use_gpu):
-    return knnGPU(x, y, k) if use_gpu else knnCPU(x, y, k)
+def knn(x, y, k, use_gpu,use_l2=False):
+    return knnGPU(x, y, k,use_l2) if use_gpu else knnCPU(x, y, k,use_l2)
 
 
 ###############################################################################
@@ -80,7 +80,7 @@ def knn(x, y, k, use_gpu):
 #
 ###############################################################################
 
-def knnGPU(x, y, k, mem=5*1024*1024*1024):
+def knnGPU(x, y, k,use_l2=False, mem=5*1024*1024*1024):
     dim = x.shape[1]
     batch_size = mem // (dim*4)
     sim = np.zeros((x.shape[0], k), dtype=np.float32)
@@ -91,7 +91,10 @@ def knnGPU(x, y, k, mem=5*1024*1024*1024):
         for yfrom in range(0, y.shape[0], batch_size):
             yto = min(yfrom + batch_size, y.shape[0])
             # print('{}-{}  ->  {}-{}'.format(xfrom, xto, yfrom, yto))
-            idx = faiss.IndexFlatIP(dim)
+            if use_l2:
+                 idx = faiss.IndexFlatL2(dim)
+            else:
+                idx = faiss.IndexFlatIP(dim)
             idx = faiss.index_cpu_to_all_gpus(idx)
             idx.add(y[yfrom:yto])
             bsim, bind = idx.search(x[xfrom:xto], min(k, yto-yfrom))
@@ -112,11 +115,14 @@ def knnGPU(x, y, k, mem=5*1024*1024*1024):
 # Index PQ
 #
 ###############################################################################
-def knnPQ(x,y,k,code_size):
+def knnPQ(x,y,k,code_size,use_l2=False):
     dim = x.shape[1]
-    idx = faiss.IndexPQ(dim,code_size,8,faiss.METRIC_INNER_PRODUCT)
     print("knnpq")
-    #idx = faiss.IndexScalarQuantizer(dim,faiss.ScalarQuantizer.QT_8bit,faiss.METRIC_INNER_PRODUCT)
+    if use_l2:
+        idx = faiss.IndexPQ(dim,code_size,8,faiss.METRIC_L2)
+    else:
+        faiss.IndexPQ(dim,code_size,8,faiss.METRIC_INNER_PRODUCT)
+        #idx = faiss.IndexScalarQuantizer(dim,faiss.ScalarQuantizer.QT_8bit,faiss.METRIC_INNER_PRODUCT)
     print("training")
     idx.train(y)
     idx.add(y)
@@ -130,26 +136,33 @@ def knnPQ(x,y,k,code_size):
 #
 ###############################################################################
 
-def knnCPU(x, y, k):
+def knnCPU(x, y, k, use_l2=False):
     dim = x.shape[1]
-    idx = faiss.IndexFlatIP(dim)
+    if use_l2:
+         idx = faiss.IndexFlatL2(dim)
+    else:
+        idx = faiss.IndexFlatIP(dim)
     idx.add(y)
     sim, ind = idx.search(x, k)
     return sim, ind
 
 ###############################################################################
 #
-# Dedup
+# Conversion from L2 to cosine similarity
 #
 ###############################################################################
+def dist_conversion(d):
+    # cos(x,y)=1/2-||x-y||^2
+    return 1-0.5*d**2
 
-def dedupe(x):
-    dim = x.shape[1]
-    deduper = faiss.index_factory(dim, 'OPQ32,PQ32')
-    deduper.train(x)
-    codes = deduper.sa_encode(x)
-    _, idxs, _, _ = np.unique(codes, axis=0, return_index=True, return_inverse=True, return_counts=True)
-    return idxs
+
+def compute_IP_from_L2(d_mat):
+    n,m =d_mat.shape
+    new_dist = np.zeros((n,m))
+    for i in range(n):
+        for j in range(m):
+            new_dist[i,j] = dist_conversion(d_mat[i,j])
+    return d_mat
 ###############################################################################
 #
 # Scoring
@@ -231,17 +244,21 @@ if __name__ == '__main__':
     help='PQ code size')
     parser.add_argument('--filter_repeats',action='store_true', default=False,
     help='filter repeats')
+    parser.add_argument('--use_l2',action='store_true', default=True,
+    help='use l2 metric and then convert to cosine similarity')
     parser.add_argument('--max_denominator',action='store_true', default=False,
     help='Select the maximum of the backward and forward averages rather than the average')
     args = parser.parse_args()
 
     print('LASER: tool to search, score or mine bitexts')
+    print(f'the L2 conversion is used {args.use_l2}')
     use_gpu = torch.cuda.is_available() and args.gpu
     if use_gpu:
         print(' - knn will run on all available GPUs (recommended)')
     else:
         print(' - knn will run on CPU (slow)')
-
+    if args.retrieval =='intersect' and args.filter_repeats==True:
+        raise ValueError('filter repeats is not needed for intersection')
     src_inds, src_sents = TextLoadUnify(args.src, args)
     trg_inds, trg_sents = TextLoadUnify(args.trg, args)
 
@@ -254,12 +271,12 @@ if __name__ == '__main__':
 
     # load the embeddings and store as np.float32 (required for FAISS)
     x = EmbedLoad(args.src_embeddings, args.dim, verbose=args.verbose, fp16=args.fp16).astype(np.float32)
-    #x_idxs = dedupe(x)
+
     if args.unify:
         x = unique_embeddings(x, src_inds, args.verbose)
     faiss.normalize_L2(x)
     y = EmbedLoad(args.trg_embeddings, args.dim, verbose=args.verbose, fp16=args.fp16).astype(np.float32)
-    #y_idxs = dedupe(y)
+
     if args.unify:
         y = unique_embeddings(y, trg_inds, args.verbose)
     faiss.normalize_L2(y)
@@ -291,8 +308,6 @@ if __name__ == '__main__':
     y2x_ind_file = common_path +".y2x_ind.npy"
     y2x_sim_file = common_path +".y2x_sim.npy"
 
-
-
     # calculate knn in both directions
     if args.retrieval != 'bwd':
         if not os.path.exists(x2y_ind_file):
@@ -301,10 +316,12 @@ if __name__ == '__main__':
             with open(x2y_ind_file,"xb") as f, open(x2y_sim_file,"xb") as g:
                 if args.code_size:
                     print("product quantised knn - building:")
-                    x2y_sim, x2y_ind = knnPQ(x, y, min(y.shape[0], args.neighborhood),args.code_size)
+                    x2y_sim, x2y_ind = knnPQ(x, y, min(y.shape[0], args.neighborhood),args.code_size,args.use_l2)
+                    if args.use_l2:
+                        x2y_sim = compute_IP_from_L2(x2y_sim)
                 else:
                     print("knn - building:")
-                    x2y_sim, x2y_ind = knn(x, y, min(y.shape[0], args.neighborhood), use_gpu)
+                    x2y_sim, x2y_ind = knn(x, y, min(y.shape[0], args.neighborhood), use_gpu,args.use_l2)
                 np.save(f, x2y_ind)
                 np.save(g, x2y_sim)
 
@@ -315,10 +332,17 @@ if __name__ == '__main__':
             with open(y2x_ind_file,"xb") as f, open(y2x_sim_file,"xb") as g:
                 if args.code_size:
                     print("product quantised knn - building:")
-                    y2x_sim, y2x_ind = knnPQ(y, x, min(x.shape[0], args.neighborhood),args.code_size)
+                    y2x_sim, y2x_ind = knnPQ(y, x, min(x.shape[0], args.neighborhood),args.code_size,args.use_l2)
+                    if args.use_l2:
+                        y2x_sim = compute_IP_from_L2(y2x_sim)
+
                 else:
                     print("knn - building:")
-                    y2x_sim, y2x_ind = knn(y, x, min(x.shape[0], args.neighborhood), use_gpu)
+                    y2x_sim, y2x_ind = knn(y, x, min(x.shape[0], args.neighborhood), use_gpu,args.use_l2)
+                    if args.use_l2:
+                        y2x_sim = compute_IP_from_L2(y2x_sim)
+
+
                 np.save(f, y2x_ind)
                 np.save(g, y2x_sim)
 
@@ -335,10 +359,14 @@ if __name__ == '__main__':
     #if args.retrieval != 'bwd':
     x2y_ind = np.load(x2y_ind_file)
     x2y_sim = np.load(x2y_sim_file)
+    #convert to cosine similarity
+
 
     #if args.retrieval != 'fwd':
     y2x_ind = np.load(y2x_ind_file)
     y2x_sim = np.load(y2x_sim_file)
+    #convert to cosine similarity
+
 
     # select subset of relevant neighbours
     if args.neighborhood < y2x_sim.shape[1]:

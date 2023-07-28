@@ -30,8 +30,9 @@ def BuccOptimize(candidate2score, gold):
     nextract = ncorrect = 0
     threshold = 0
     best_f1 = 0
-    precisions=[]
-    recalls=[]
+    precisions = []
+    recalls = []
+    all_thresholds = []
     for i in range(len(items)):
         nextract += 1
         if '\t'.join(items[i][0]) in gold:
@@ -51,9 +52,13 @@ def BuccOptimize(candidate2score, gold):
                 best_f1 = f1
                 if  i<len(items)-1:
                     threshold = (items[i][1] + items[i + 1][1]) / 2
+                    all_thresholds.append(threshold)
                 else:
                     threshold = items[i][1]
-    return threshold,precisions,recalls
+                    all_thresholds.append(threshold)
+            else:
+                all_thresholds.append(threshold) #the threshold is the same case
+    return threshold, all_thresholds, precisions,recalls
 ###############################################################################
 #
 # Filter candidates for a given threshold
@@ -135,6 +140,8 @@ id2txt = {}
 helper = args.candidates.split("sonar")
 other_settings = helper[1].split(".")
 directory_name = helper[0] + f"PR"
+'''
+
 if not os.path.exists(directory_name):
     os.makedirs(directory_name)
 precisions_file = directory_name+ f"/sonar.{other_settings[1]}.{other_settings[2]}.{other_settings[3]}.{other_settings[4]}.{other_settings[5]}.{other_settings[6]}.{other_settings[7]}.precisions"
@@ -154,7 +161,7 @@ if "max_denominator" in other_settings:
 print("precisions will be saved in file:",precisions_file)
 print("recalls will be saved in file:",recalls_file)
 print("thresholds will be saved in file:",thresholds_file)
-
+'''
 
 with open(args.candidates, encoding=args.encoding, errors='surrogateescape') as f:
     for line in f:
@@ -175,11 +182,15 @@ if args.gold:
         if args.output:
             print(' - extracted bitext are written into {:s}'.format(args.output))
     gold = {line.strip() for line in open(args.gold)}
-    with open(precisions_file,"xb") as f, open(recalls_file,"xb") as g:
-        print("len of candidates:",len(candidate2score))
-        threshold,pr,r = BuccOptimize(candidate2score, gold)
-        np.save(f, pr)
-        np.save(g, r)
+    #TODO save all thresholds
+    threshold,all_thresholds,pr,r = BuccOptimize(candidate2score, gold)
+    #with open(precisions_file,"wb+") as f, open(recalls_file,"wb+") as g, open(thresholds_file,"wb+") as h:
+    #    print("len of candidates:",len(candidate2score))
+    #    threshold,all_thresholds,pr,r = BuccOptimize(candidate2score, gold)
+    #    np.save(f, pr)
+    #    np.save(g, r)
+    #    np.save(h, all_thresholds)
+
 
 
     bitexts = BuccExtract(candidate2score, threshold, args.output)
