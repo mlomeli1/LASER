@@ -92,6 +92,7 @@ def knnGPU(x, y, k,use_l2=False, mem=5*1024*1024*1024):
             yto = min(yfrom + batch_size, y.shape[0])
             # print('{}-{}  ->  {}-{}'.format(xfrom, xto, yfrom, yto))
             if use_l2:
+                 print(f"use l2 in knn gpu {use_l2}")
                  idx = faiss.IndexFlatL2(dim)
             else:
                 idx = faiss.IndexFlatIP(dim)
@@ -121,7 +122,7 @@ def knnPQ(x,y,k,code_size,use_l2=False):
     if use_l2:
         idx = faiss.IndexPQ(dim,code_size,8,faiss.METRIC_L2)
     else:
-        faiss.IndexPQ(dim,code_size,8,faiss.METRIC_INNER_PRODUCT)
+        idx = faiss.IndexPQ(dim,code_size,8,faiss.METRIC_INNER_PRODUCT)
         #idx = faiss.IndexScalarQuantizer(dim,faiss.ScalarQuantizer.QT_8bit,faiss.METRIC_INNER_PRODUCT)
     print("training")
     idx.train(y)
@@ -141,6 +142,7 @@ def knnCPU(x, y, k, use_l2=False):
     if use_l2:
          idx = faiss.IndexFlatL2(dim)
     else:
+        print("no l2")
         idx = faiss.IndexFlatIP(dim)
     idx.add(y)
     sim, ind = idx.search(x, k)
@@ -148,13 +150,11 @@ def knnCPU(x, y, k, use_l2=False):
 
 ###############################################################################
 #
-# Conversion from L2 to cosine similarity
+# Conversion from L2 squared to cosine similarity
 #
 ###############################################################################
 def dist_conversion(d):
-    # cos(x,y)=1/2-||x-y||^2
-    return 1-0.5*d**2
-
+    return 1-0.5*d
 
 def compute_IP_from_L2(d_mat):
     n,m =d_mat.shape
@@ -162,7 +162,11 @@ def compute_IP_from_L2(d_mat):
     for i in range(n):
         for j in range(m):
             new_dist[i,j] = dist_conversion(d_mat[i,j])
-    return d_mat
+    return new_dist
+   #l2_to_ip = 0.5*d_mat
+    #np.negative(l2_to_ip,out=l2_to_ip)
+    #np.add(l2_to_ip,1,out=l2_to_ip)
+    #return l2_to_ip
 ###############################################################################
 #
 # Scoring
@@ -244,7 +248,7 @@ if __name__ == '__main__':
     help='PQ code size')
     parser.add_argument('--filter_repeats',action='store_true', default=False,
     help='filter repeats')
-    parser.add_argument('--use_l2',action='store_true', default=True,
+    parser.add_argument('--use_l2',action='store_true', default=False,
     help='use l2 metric and then convert to cosine similarity')
     parser.add_argument('--max_denominator',action='store_true', default=False,
     help='Select the maximum of the backward and forward averages rather than the average')
@@ -252,6 +256,7 @@ if __name__ == '__main__':
 
     print('LASER: tool to search, score or mine bitexts')
     print(f'the L2 conversion is used {args.use_l2}')
+
     use_gpu = torch.cuda.is_available() and args.gpu
     if use_gpu:
         print(' - knn will run on all available GPUs (recommended)')
@@ -317,11 +322,11 @@ if __name__ == '__main__':
                 if args.code_size:
                     print("product quantised knn - building:")
                     x2y_sim, x2y_ind = knnPQ(x, y, min(y.shape[0], args.neighborhood),args.code_size,args.use_l2)
-                    if args.use_l2:
-                        x2y_sim = compute_IP_from_L2(x2y_sim)
                 else:
                     print("knn - building:")
                     x2y_sim, x2y_ind = knn(x, y, min(y.shape[0], args.neighborhood), use_gpu,args.use_l2)
+                if args.use_l2:
+                    x2y_sim = compute_IP_from_L2(x2y_sim)
                 np.save(f, x2y_ind)
                 np.save(g, x2y_sim)
 
@@ -333,16 +338,11 @@ if __name__ == '__main__':
                 if args.code_size:
                     print("product quantised knn - building:")
                     y2x_sim, y2x_ind = knnPQ(y, x, min(x.shape[0], args.neighborhood),args.code_size,args.use_l2)
-                    if args.use_l2:
-                        y2x_sim = compute_IP_from_L2(y2x_sim)
-
                 else:
                     print("knn - building:")
                     y2x_sim, y2x_ind = knn(y, x, min(x.shape[0], args.neighborhood), use_gpu,args.use_l2)
-                    if args.use_l2:
-                        y2x_sim = compute_IP_from_L2(y2x_sim)
-
-
+                if args.use_l2:
+                    y2x_sim = compute_IP_from_L2(y2x_sim)
                 np.save(f, y2x_ind)
                 np.save(g, y2x_sim)
 
