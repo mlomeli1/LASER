@@ -163,10 +163,7 @@ def compute_IP_from_L2(d_mat):
         for j in range(m):
             new_dist[i,j] = dist_conversion(d_mat[i,j])
     return new_dist
-   #l2_to_ip = 0.5*d_mat
-    #np.negative(l2_to_ip,out=l2_to_ip)
-    #np.add(l2_to_ip,1,out=l2_to_ip)
-    #return l2_to_ip
+
 ###############################################################################
 #
 # Scoring
